@@ -15,7 +15,7 @@
  * @wordpress-plugin
  * Plugin Name:       Woo Mobikwik
  * Plugin URI:        https://www.mobikwik.com/
- * Description:       This is a short description of what the plugin does. It's displayed in the WordPress admin area.
+ * Description:       This Plugin will help you integrate Mobikwik Wallet in your Woocommerce Stor.
  * Version:           1.0.0
  * Author:            Vinit Patil
  * Author URI:        https://vinit.site
@@ -63,20 +63,3 @@ register_deactivation_hook( __FILE__, 'deactivate_woo_mobikwik' );
  * admin-specific hooks, and public-facing site hooks.
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-woo-mobikwik.php';
-
-/**
- * Begins execution of the plugin.
- *
- * Since everything within the plugin is registered via hooks,
- * then kicking off the plugin from this point in the file does
- * not affect the page life cycle.
- *
- * @since    1.0.0
- */
-function run_woo_mobikwik() {
-
-	$plugin = new Woo_Mobikwik();
-	$plugin->run();
-
-}
-run_woo_mobikwik();
