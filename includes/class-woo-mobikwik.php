@@ -163,7 +163,7 @@ function wc_mobikwik_gateway_init() {
                 'merchant_name' => array(
                     'title' => __('Merchant Name', $this->id),
                     'type'=> 'text',
-                    'description' => __('Metchant Name that the user will see ( Your Brand Name ).', $this->id),
+                    'description' => __('Merchant Name that the user will see ( Your Brand Name ).', $this->id),
                 ),
                 'mid' => array(
                     'title' => __('MID', $this->id),
@@ -290,7 +290,7 @@ function wc_mobikwik_gateway_init() {
 
             // $order_amount = 1 ;
             ?>
-				<form action="https://test.mobikwik.com/wallet" method="post" name =
+				<form action="<?=$actionURL?>" method="post" name =
 				"info101">
 				<input type="hidden" name="email" value="<?=$customer_email?>" />
 				<input type="hidden" name="cell" value="<?=$customer_phone?>" />
