@@ -27,192 +27,443 @@
  * @subpackage Woo_Mobikwik/includes
  * @author     Vinit Patil <reach@vinit.site>
  */
-class Woo_Mobikwik {
 
-	/**
-	 * The loader that's responsible for maintaining and registering all hooks that power
-	 * the plugin.
-	 *
-	 * @since    1.0.0
-	 * @access   protected
-	 * @var      Woo_Mobikwik_Loader    $loader    Maintains and registers all hooks for the plugin.
-	 */
-	protected $loader;
 
-	/**
-	 * The unique identifier of this plugin.
-	 *
-	 * @since    1.0.0
-	 * @access   protected
-	 * @var      string    $plugin_name    The string used to uniquely identify this plugin.
-	 */
-	protected $plugin_name;
+if ( ! defined( 'ABSPATH' ) )
+{
+    exit; // Exit if accessed directly
+}
 
-	/**
-	 * The current version of the plugin.
-	 *
-	 * @since    1.0.0
-	 * @access   protected
-	 * @var      string    $version    The current version of the plugin.
-	 */
-	protected $version;
+add_action( 'plugins_loaded', 'wc_mobikwik_gateway_init', 11 );
+add_action('admin_post_nopriv_mbk_wc_webhook', 'mobikwik_webhook_init', 10);
 
-	/**
-	 * Define the core functionality of the plugin.
-	 *
-	 * Set the plugin name and the plugin version that can be used throughout the plugin.
-	 * Load the dependencies, define the locale, and set the hooks for the admin area and
-	 * the public-facing side of the site.
-	 *
-	 * @since    1.0.0
-	 */
-	public function __construct() {
-		if ( defined( 'WOO_MOBIKWIK_VERSION' ) ) {
-			$this->version = WOO_MOBIKWIK_VERSION;
-		} else {
-			$this->version = '1.0.0';
-		}
-		$this->plugin_name = 'woo-mobikwik';
 
-		$this->load_dependencies();
-		$this->set_locale();
-		$this->define_admin_hooks();
-		$this->define_public_hooks();
+function wc_mobikwik_gateway_init() {
+    if (!class_exists('WC_Payment_Gateway'))
+    {
+        return;
+    }
 
-	}
+    class WC_Gateway_Mobikwik extends WC_Payment_Gateway {
+        // This one stores the WooCommerce Order Id
+        const SESSION_KEY                    = 'mobikwik_wc_order_id';
+        // const RAZORPAY_PAYMENT_ID            = 'razorpay_payment_id';
+        // const RAZORPAY_ORDER_ID              = 'razorpay_order_id';
+        // const RAZORPAY_SIGNATURE             = 'razorpay_signature';
 
-	/**
-	 * Load the required dependencies for this plugin.
-	 *
-	 * Include the following files that make up the plugin:
-	 *
-	 * - Woo_Mobikwik_Loader. Orchestrates the hooks of the plugin.
-	 * - Woo_Mobikwik_i18n. Defines internationalization functionality.
-	 * - Woo_Mobikwik_Admin. Defines all hooks for the admin area.
-	 * - Woo_Mobikwik_Public. Defines all hooks for the public side of the site.
-	 *
-	 * Create an instance of the loader which will be used to register the hooks
-	 * with WordPress.
-	 *
-	 * @since    1.0.0
-	 * @access   private
-	 */
-	private function load_dependencies() {
+        const INR                            = 'INR';
+        const CAPTURE                        = 'capture';
+        const AUTHORIZE                      = 'authorize';
+        const WC_ORDER_ID                    = 'woocommerce_order_id';
 
-		/**
-		 * The class responsible for orchestrating the actions and filters of the
-		 * core plugin.
-		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-woo-mobikwik-loader.php';
+        const DEFAULT_LABEL                  = 'Mobikwik';
+        const DEFAULT_DESCRIPTION            = 'Pay securely by Mobikwik.';
+        const DEFAULT_SUCCESS_MESSAGE        = 'Thank you for shopping with us. Your account has been charged and your transaction is successful. We will be processing your order soon.';
 
-		/**
-		 * The class responsible for defining internationalization functionality
-		 * of the plugin.
-		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-woo-mobikwik-i18n.php';
+        protected $visibleSettings = array(
+            'enabled',
+            'enabled_test',
+            'title',
+            'description',
+            'mid',
+            'mobi_key_secret',
+            'merchant_name',
+        );
 
-		/**
-		 * The class responsible for defining all actions that occur in the admin area.
-		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-woo-mobikwik-admin.php';
 
-		/**
-		 * The class responsible for defining all actions that occur in the public-facing
-		 * side of the site.
-		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-woo-mobikwik-public.php';
+        public $form_fields = array();
 
-		$this->loader = new Woo_Mobikwik_Loader();
+        public $supports = array(
+            'products',
+            'refunds'
+        );
 
-	}
+        /**
+         * Can be set to true if you want payment fields
+         * to show on the checkout (if doing a direct integration).
+         * @var boolean
+         */
+        public $has_fields = false;
 
-	/**
-	 * Define the locale for this plugin for internationalization.
-	 *
-	 * Uses the Woo_Mobikwik_i18n class in order to set the domain and to register the hook
-	 * with WordPress.
-	 *
-	 * @since    1.0.0
-	 * @access   private
-	 */
-	private function set_locale() {
+        /**
+         * Unique ID for the gateway
+         * @var string
+         */
+        public $id = 'mobikwik';
 
-		$plugin_i18n = new Woo_Mobikwik_i18n();
+        /**
+         * Title of the payment method shown on the admin page.
+         * @var string
+         */
+        public $method_title = 'Mobikwik';
 
-		$this->loader->add_action( 'plugins_loaded', $plugin_i18n, 'load_plugin_textdomain' );
 
-	}
+        /**
+         * Description of the payment method shown on the admin page.
+         * @var  string
+         */
+        public $method_description = 'Allow customers to securely pay via Mobikwik (Credit/Debit Cards, NetBanking, UPI, Wallets)';
 
-	/**
-	 * Register all of the hooks related to the admin area functionality
-	 * of the plugin.
-	 *
-	 * @since    1.0.0
-	 * @access   private
-	 */
-	private function define_admin_hooks() {
+        /**
+         * Icon URL, set in constructor
+         * @var string
+         */
+        public $icon;
 
-		$plugin_admin = new Woo_Mobikwik_Admin( $this->get_plugin_name(), $this->get_version() );
 
-		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
-		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+        public function __construct($hooks = true)
+        {
+            $this->id = 'mobikwik' ;
+            // $this->icon =  plugins_url('images/logo.png' , __FILE__);
 
-	}
+            $this->init_form_fields();
+            $this->init_settings();
 
-	/**
-	 * Register all of the hooks related to the public-facing functionality
-	 * of the plugin.
-	 *
-	 * @since    1.0.0
-	 * @access   private
-	 */
-	private function define_public_hooks() {
+            // TODO: This is hacky, find a better way to do this
+            // See mergeSettingsWithParentPlugin() in subscriptions for more details.
+            if ($hooks)
+            {
+                $this->initHooks();
+            }
 
-		$plugin_public = new Woo_Mobikwik_Public( $this->get_plugin_name(), $this->get_version() );
+            $this->title = $this->getSetting('title');
+        }
+        // The meat and potatoes of our gateway will go here
 
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 
-	}
+        public function init_form_fields()
+        {
 
-	/**
-	 * Run the loader to execute all of the hooks with WordPress.
-	 *
-	 * @since    1.0.0
-	 */
-	public function run() {
-		$this->loader->run();
-	}
 
-	/**
-	 * The name of the plugin used to uniquely identify it within the context of
-	 * WordPress and to define internationalization functionality.
-	 *
-	 * @since     1.0.0
-	 * @return    string    The name of the plugin.
-	 */
-	public function get_plugin_name() {
-		return $this->plugin_name;
-	}
+            $webhookUrl = esc_url(admin_url('admin-post.php')) . '?action=mbk_wc_webhook';
 
-	/**
-	 * The reference to the class that orchestrates the hooks with the plugin.
-	 *
-	 * @since     1.0.0
-	 * @return    Woo_Mobikwik_Loader    Orchestrates the hooks of the plugin.
-	 */
-	public function get_loader() {
-		return $this->loader;
-	}
+            $defaultFormFields = array(
+                'enabled' => array(
+                    'title' => __('Enable/Disable', $this->id),
+                    'type' => 'checkbox',
+                    'label' => __('Enable this module?', $this->id),
+                    'default' => 'yes'
+                ),
+                'enabled_test' => array(
+                    'title' => __('Enable/Disable', $this->id),
+                    'type' => 'checkbox',
+                    'label' => __('Enable this test Mode', $this->id),
+                    'default' => 'yes'
+                ),
+                'title' => array(
+                    'title' => __('Title', $this->id),
+                    'type'=> 'text',
+                    'description' => __('This controls the title which the user sees during checkout.', $this->id),
+                    'default' => __(static::DEFAULT_LABEL, $this->id)
+                ),
+                
+                'description' => array(
+                    'title' => __('Description', $this->id),
+                    'type' => 'textarea',
+                    'description' => __('This controls the description which the user sees during checkout.', $this->id),
+                    'default' => __(static::DEFAULT_DESCRIPTION, $this->id)
+                ),
+                'merchant_name' => array(
+                    'title' => __('Merchant Name', $this->id),
+                    'type'=> 'text',
+                    'description' => __('Metchant Name that the user will see ( Your Brand Name ).', $this->id),
+                ),
+                'mid' => array(
+                    'title' => __('MID', $this->id),
+                    'type' => 'text',
+                    'description' => __('This MID will be provided to you by mobikwik.', $this->id)
+                ),
+                'mobi_key_secret' => array(
+                    'title' => __('MobiKwik Key Secret', $this->id),
+                    'type' => 'text',
+                    'description' => __('The key secret which was provided by MobiKwik.', $this->id)
+                ),
+                
+                
+            );
 
-	/**
-	 * Retrieve the version number of the plugin.
-	 *
-	 * @since     1.0.0
-	 * @return    string    The version number of the plugin.
-	 */
-	public function get_version() {
-		return $this->version;
-	}
+            foreach ($defaultFormFields as $key => $value)
+            {
+                if (in_array($key, $this->visibleSettings, true))
+                {
+                    $this->form_fields[$key] = $value;
+                }
+            }
+        }
 
+        
+
+        protected function getOrderKey($order)
+        {
+            $orderKey = null;
+
+            if (version_compare(WOOCOMMERCE_VERSION, '3.0.0', '>='))
+            {
+                return $order->get_order_key();
+            }
+
+            return $order->order_key;
+        }
+
+        /**
+         * Process the payment and return the result
+         **/
+        function process_payment($order_id)
+        {
+            global $woocommerce;
+            $order = new WC_Order($order_id);
+            $woocommerce->session->set(self::SESSION_KEY, $order_id);
+
+            $orderKey = $this->getOrderKey($order);
+
+            if (version_compare(WOOCOMMERCE_VERSION, '2.1', '>='))
+            {
+                return array(
+                    'result' => 'success',
+                    'redirect' => add_query_arg('key', $orderKey, $order->get_checkout_payment_url(true))
+                );
+            }
+            else if (version_compare(WOOCOMMERCE_VERSION, '2.0.0', '>='))
+            {
+                return array(
+                    'result' => 'success',
+                    'redirect' => add_query_arg('order', $order->get_id(),
+                        add_query_arg('key', $orderKey, $order->get_checkout_payment_url(true)))
+                );
+            }
+            else
+            {
+                return array(
+                    'result' => 'success',
+                    'redirect' => add_query_arg('order', $order->get_id(),
+                        add_query_arg('key', $orderKey, get_permalink(get_option('woocommerce_pay_page_id'))))
+                );
+            }
+        }
+
+        /**
+         * Returns redirect URL post payment processing
+         * @return string redirect URL
+         */
+        private function getRedirectUrl()
+        {
+            return get_site_url() . '/wc-api/' . $this->id;
+        }
+
+        
+        /**
+         * Return Wordpress plugin settings
+         * @param  string $key setting key
+         * @return mixed setting value
+         */
+        public function getSetting($key)
+        {
+            return $this->settings[$key];
+        }
+
+        /**
+         * Receipt Page
+         * @param string $orderId WC Order Id
+         **/
+        function receipt_page($orderId)
+        {   
+            $order = wc_get_order( $orderId );
+
+            $callbackUrl = $this->getRedirectUrl();
+            $order_amount = (int) $order->get_total() ;
+            $mid = $this->getSetting('mid'); ;
+            $key_secret = $this->getSetting('mobi_key_secret') ;
+            $merchant_name = $this->getSetting('merchant_name') ;
+            
+            $customer_email = $order->get_billing_email(); 
+            $customer_phone = get_post_meta($order->get_order_number(), '_billing_phone', true); 
+            
+
+            $checksum_string = "'".$customer_phone."''".$customer_email."''".$order_amount."''".$orderId."''".$callbackUrl."''".$mid."'" ;
+            
+            $checksum = hash_hmac('sha256', $checksum_string, $key_secret);
+
+
+            $actionURL = '' ;
+
+            if( $this->getSetting('enabled_test') ){
+                $actionURL = 'https://test.mobikwik.com/wallet' ;
+            }
+
+
+            // $order_amount = 1 ;
+            ?>
+				<form action="https://test.mobikwik.com/wallet" method="post" name =
+				"info101">
+				<input type="hidden" name="email" value="<?=$customer_email?>" />
+				<input type="hidden" name="cell" value="<?=$customer_phone?>" />
+				<input type="hidden" name="merchantname" value="<?=$merchant_name?>" />
+
+				<input type="hidden" name="amount" value="<?=$order_amount?>" />
+				<input type="hidden" name="orderid" value="<?=$orderId?>" />
+				<input type="hidden" name="mid" value="<?=$mid?>" />
+				<input type="hidden" name="redirecturl" value="<?=$callbackUrl?>" />
+				<input type="hidden" name="checksum" value="<?=$checksum?>"/>
+				<button type='submit' > PAY NOW </button>
+				</form>
+				<script>
+				document.forms["info101"].submit();
+				</script>
+            <?php
+        }
+
+
+        protected function initHooks()
+        {
+            add_action('init', array(&$this, 'check_mobikwik_response'));
+
+            add_action('woocommerce_receipt_' . $this->id, array($this, 'receipt_page'));
+
+            add_action('woocommerce_api_' . $this->id, array($this, 'check_mobikwik_response'));
+
+            $cb = array($this, 'process_admin_options');
+
+            if (version_compare(WOOCOMMERCE_VERSION, '2.0.0', '>='))
+            {
+                add_action("woocommerce_update_options_payment_gateways_{$this->id}", $cb);
+            }
+            else
+            {
+                add_action('woocommerce_update_options_payment_gateways', $cb);
+            }
+        }
+
+
+        /**
+         * Check for valid razorpay server callback
+         **/
+        function check_mobikwik_response()
+        {
+            global $woocommerce;
+
+            $orderId = $woocommerce->session->get(self::SESSION_KEY);
+            $order = new WC_Order($orderId);
+
+            $razorpayPaymentId = null;
+
+            $checksum = $_POST['checksum'] ; 
+            $status_code = $_POST['statuscode'];
+            $status_message = $_POST['statusmessage'];
+            $paymentID = $_POST['orderid'];
+            $success = true ;
+            $error = $status_message ;
+
+            if($status_code != 0){
+                $success = false ;
+            }
+            if(!$this->verifyChecksum($order,$checksum) ){
+                $success = false ;
+            }
+
+            $this->updateOrder($order, $success, $error, $paymentID);
+
+            
+        }
+
+
+        /**
+         * Modifies existing order and handles success case
+         *
+         * @param $success, & $order
+         */
+        public function updateOrder(& $order, $success, $errorMessage, $razorpayPaymentId )
+        {
+            global $woocommerce;
+
+            $orderId = $order->get_order_number();
+
+            if (($success === true) && ($order->needs_payment() === true))
+            {
+                $this->msg['message'] = "Payment Success &nbsp; Order Id: $orderId";
+                $this->msg['class'] = 'success';
+
+                $order->payment_complete($razorpayPaymentId);
+                $order->add_order_note("Mobiwik payment successful <br/>Ordeer Id: $razorpayPaymentId");
+
+                if (isset($woocommerce->cart) === true)
+                {
+                    $woocommerce->cart->empty_cart();
+                }
+                $this->redirectUser($order);
+            }
+            else
+            {
+                $this->msg['class'] = 'error';
+                $this->msg['message'] = $errorMessage;
+
+                if ($razorpayPaymentId)
+                {
+                    $order->add_order_note("Payment Failed. Please check Mobikwik Dashboard. <br/> Mobikwik Id: $razorpayPaymentId");
+                }
+
+                $order->add_order_note("Transaction Failed: $errorMessage<br/>");
+                $order->update_status('failed');
+                
+                wp_redirect(get_site_url());
+            }
+
+            
+        }
+
+        
+		/* Verify the checksum sent back from in response */
+        protected function verifyChecksum($order, $order_checksum){
+
+            $status_code = $_POST['statuscode'];
+            $status_message = $_POST['statusmessage'];
+
+
+            $orderId = $order->get_order_number();
+            $callbackUrl = $this->getRedirectUrl();
+            $order_amount = $order->get_total() ;
+            $mid = $this->getSetting('mid'); ;
+            $key_secret = $this->getSetting('mobi_key_secret') ;
+
+            $checksum_string = "'".$status_code."''".$orderId."''".$order_amount."''".$status_message."''".$mid."'" ;
+            
+            $checksum = hash_hmac('sha256', $checksum_string, $key_secret);
+            
+            if($order_checksum == $checksum)
+                return true ;
+            else 
+                return false ;
+
+        }
+
+
+        protected function redirectUser($order)
+        {
+            $redirectUrl = $this->get_return_url($order);
+
+            wp_redirect($redirectUrl);
+            exit;
+        }
+
+
+    } // end \WC_Gateway_Offline class
+
+    /**
+     * Add the Gateway to WooCommerce
+     **/
+    function woocommerce_add_mobikwik_gateway($methods)
+    {
+        $methods[] = 'WC_Gateway_Mobikwik';
+        return $methods;
+    }
+
+    add_filter('woocommerce_payment_gateways', 'woocommerce_add_mobikwik_gateway' );
+}
+
+
+// This is set to a priority of 10
+function mobikwik_webhook_init()
+{
+    $rzpWebhook = new MBK_Webhook();
+
+    $rzpWebhook->process();
 }
