@@ -47,9 +47,6 @@ function wc_mobikwik_gateway_init() {
     class WC_Gateway_Mobikwik extends WC_Payment_Gateway {
         // This one stores the WooCommerce Order Id
         const SESSION_KEY                    = 'mobikwik_wc_order_id';
-        // const RAZORPAY_PAYMENT_ID            = 'razorpay_payment_id';
-        // const RAZORPAY_ORDER_ID              = 'razorpay_order_id';
-        // const RAZORPAY_SIGNATURE             = 'razorpay_signature';
 
         const INR                            = 'INR';
         const CAPTURE                        = 'capture';
@@ -284,7 +281,7 @@ function wc_mobikwik_gateway_init() {
             $checksum = hash_hmac('sha256', $checksum_string, $key_secret);
 
 
-            $actionURL = '' ;
+            $actionURL = 'https://walletapi.mobikwik.com/wallet' ;
 
             if( $this->getSetting('enabled_test') ){
                 $actionURL = 'https://test.mobikwik.com/wallet' ;
@@ -335,7 +332,7 @@ function wc_mobikwik_gateway_init() {
 
 
         /**
-         * Check for valid razorpay server callback
+         * Check for valid server callback
          **/
         function check_mobikwik_response()
         {
@@ -344,7 +341,7 @@ function wc_mobikwik_gateway_init() {
             $orderId = $woocommerce->session->get(self::SESSION_KEY);
             $order = new WC_Order($orderId);
 
-            $razorpayPaymentId = null;
+            $paymentID = null;
 
             $checksum = $_POST['checksum'] ; 
             $status_code = $_POST['statuscode'];
@@ -371,7 +368,7 @@ function wc_mobikwik_gateway_init() {
          *
          * @param $success, & $order
          */
-        public function updateOrder(& $order, $success, $errorMessage, $razorpayPaymentId )
+        public function updateOrder(& $order, $success, $errorMessage, $paymentID )
         {
             global $woocommerce;
 
@@ -382,8 +379,8 @@ function wc_mobikwik_gateway_init() {
                 $this->msg['message'] = "Payment Success &nbsp; Order Id: $orderId";
                 $this->msg['class'] = 'success';
 
-                $order->payment_complete($razorpayPaymentId);
-                $order->add_order_note("Mobiwik payment successful <br/>Ordeer Id: $razorpayPaymentId");
+                $order->payment_complete($paymentID);
+                $order->add_order_note("Mobiwik payment successful <br/>Ordeer Id: $paymentID");
 
                 if (isset($woocommerce->cart) === true)
                 {
@@ -396,9 +393,9 @@ function wc_mobikwik_gateway_init() {
                 $this->msg['class'] = 'error';
                 $this->msg['message'] = $errorMessage;
 
-                if ($razorpayPaymentId)
+                if ($paymentID)
                 {
-                    $order->add_order_note("Payment Failed. Please check Mobikwik Dashboard. <br/> Mobikwik Id: $razorpayPaymentId");
+                    $order->add_order_note("Payment Failed. Please check Mobikwik Dashboard. <br/> Mobikwik Id: $paymentID");
                 }
 
                 $order->add_order_note("Transaction Failed: $errorMessage<br/>");
