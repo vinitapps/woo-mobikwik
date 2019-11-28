@@ -13,8 +13,7 @@
  * @package           Woo_Mobikwik
  *
  * @wordpress-plugin
- * Plugin Name:       Woo Mobikwik
- * Plugin URI:        https://www.mobikwik.com/
+ * Plugin Name:       VP Mobikwik For WooCommerce
  * Description:       This Plugin will help you integrate Mobikwik Wallet in your Woocommerce Store.
  * Version:           1.0.0
  * Author:            Vinit Patil
