@@ -343,10 +343,10 @@ function wc_mobikwik_gateway_init() {
 
             $paymentID = null;
 
-            $checksum = $_POST['checksum'] ; 
-            $status_code = $_POST['statuscode'];
-            $status_message = $_POST['statusmessage'];
-            $paymentID = $_POST['orderid'];
+            $checksum = sanitize_key($_POST['checksum']) ; 
+            $status_code = sanitize_key($_POST['statuscode']);
+            $status_message = sanitize_key($_POST['statusmessage']);
+            $paymentID = sanitize_key($_POST['orderid']);
             $success = true ;
             $error = $status_message ;
 
@@ -411,8 +411,8 @@ function wc_mobikwik_gateway_init() {
 		/* Verify the checksum sent back from in response */
         protected function verifyChecksum($order, $order_checksum){
 
-            $status_code = $_POST['statuscode'];
-            $status_message = $_POST['statusmessage'];
+            $status_code = sanitize_key($_POST['statuscode']);
+            $status_message = sanitize_key($_POST['statusmessage']);
 
 
             $orderId = $order->get_order_number();
